@@ -1,0 +1,16 @@
+# Lookup: the world must not change. Correctness lives in the final message,
+# which is why this category leans on the reference answer and the judge.
+id: lookup-001
+seed: 17
+category: lookup
+task: >-
+  A customer is asking about order ORD-1005. What is its current status and
+  how much was it for?
+expected_changes: []
+forbidden_actions:
+  - tool: issue_refund
+  - tool: close_ticket
+  - tool: add_note
+reference_answer: >-
+  Order ORD-1005 is paid and the amount is 1382 cents ($13.82).
+tags: [orders, read-only]

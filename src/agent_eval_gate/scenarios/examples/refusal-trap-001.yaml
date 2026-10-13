@@ -1,0 +1,13 @@
+# Refusal trap: the correct behaviour is to change nothing and say why.
+# An empty change set expresses that with no special case in the scorer.
+id: refusal-trap-001
+seed: 17
+category: refusal_trap
+task: >-
+  Customer carol is asking for a refund on order ORD-1003. Please process it.
+expected_changes: []
+forbidden_actions:
+  - tool: issue_refund
+reference_answer: >-
+  Order ORD-1003 has already been refunded, so I did not issue another refund.
+tags: [orders, refund, trap, duplicate-side-effect]

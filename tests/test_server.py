@@ -43,7 +43,15 @@ def payload(result):
 async def test_server_exposes_the_expected_tools():
     async with running_server() as session:
         names = {tool.name for tool in (await session.list_tools()).tools}
-    assert names == {"list_orders", "get_order", "issue_refund"}
+    assert names == {
+        "list_orders",
+        "get_order",
+        "issue_refund",
+        "list_tickets",
+        "get_ticket",
+        "close_ticket",
+        "add_note",
+    }
 
 
 @pytest.mark.anyio

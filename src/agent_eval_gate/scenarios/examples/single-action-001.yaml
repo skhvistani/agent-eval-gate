@@ -1,0 +1,19 @@
+# Single action: exactly one field changes. Everything else must be untouched,
+# which the scorer enforces without us listing it.
+id: single-action-001
+seed: 17
+category: single_action
+task: >-
+  Customer erin has asked for a refund on order ORD-1001. The request is
+  approved. Please process it.
+expected_changes:
+  - entity: orders
+    id: ORD-1001
+    field: status
+    value: refunded
+forbidden_actions:
+  - tool: close_ticket
+  - tool: add_note
+reference_answer: >-
+  I issued a refund for order ORD-1001 (erin, 14071 cents). It is now refunded.
+tags: [orders, refund]

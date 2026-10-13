@@ -4,6 +4,10 @@ The seed is fixed at process start (argv or ORDERS_WORLD_SEED), never at
 runtime: the agent under test must not be able to reset the world it is
 being scored on. The runner gets a clean world by launching a new process.
 
+This layer holds no business logic. It translates the store's ordinary Python
+exceptions into ToolError, which is what puts a readable reason in front of
+the model instead of an opaque "Error executing tool".
+
 Run directly:  python -m agent_eval_gate.worlds.orders.server --seed 17
 """
 
@@ -22,9 +26,12 @@ server = MCPServer(name="orders-world")
 world = World(DEFAULT_SEED)
 
 
+# --- orders -------------------------------------------------------------
+
+
 @server.tool()
 def list_orders() -> list[dict]:
-    """List every order in the system with its current status."""
+    """List every order with its customer, amount in cents, and status."""
     return [asdict(order) for order in world.orders.values()]
 
 
@@ -44,6 +51,46 @@ def issue_refund(order_id: str) -> dict:
         return asdict(world.issue_refund(order_id))
     except KeyError:
         raise ToolError(f"No order with id {order_id}") from None
+    except ValueError as exc:
+        raise ToolError(str(exc)) from None
+
+
+# --- tickets ------------------------------------------------------------
+
+
+@server.tool()
+def list_tickets() -> list[dict]:
+    """List every support ticket with the order it concerns and its status."""
+    return [asdict(ticket) for ticket in world.tickets.values()]
+
+
+@server.tool()
+def get_ticket(ticket_id: str) -> dict:
+    """Look up a single support ticket by its id, e.g. "TIC-5001"."""
+    try:
+        return asdict(world.get_ticket(ticket_id))
+    except KeyError:
+        raise ToolError(f"No ticket with id {ticket_id}") from None
+
+
+@server.tool()
+def close_ticket(ticket_id: str) -> dict:
+    """Close a support ticket. Fails if the ticket is already closed."""
+    try:
+        return asdict(world.close_ticket(ticket_id))
+    except KeyError:
+        raise ToolError(f"No ticket with id {ticket_id}") from None
+    except ValueError as exc:
+        raise ToolError(str(exc)) from None
+
+
+@server.tool()
+def add_note(ticket_id: str, note: str) -> dict:
+    """Append a note to a support ticket."""
+    try:
+        return asdict(world.add_note(ticket_id, note))
+    except KeyError:
+        raise ToolError(f"No ticket with id {ticket_id}") from None
     except ValueError as exc:
         raise ToolError(str(exc)) from None
 

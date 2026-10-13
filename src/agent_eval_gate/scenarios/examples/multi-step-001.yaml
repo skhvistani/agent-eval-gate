@@ -1,0 +1,23 @@
+# Multi-step: two side effects that must both land. The agent has to follow
+# the ticket to its order; we do not care in which order it does the two.
+id: multi-step-001
+seed: 17
+category: multi_step
+task: >-
+  Ticket TIC-5002 reports that a package never arrived. Refund the order the
+  ticket refers to, leave a note on the ticket saying the refund was issued,
+  and then close the ticket.
+expected_changes:
+  - entity: orders
+    id: ORD-1009
+    field: status
+    value: refunded
+  - entity: tickets
+    id: TIC-5002
+    field: status
+    value: closed
+forbidden_actions: []
+reference_answer: >-
+  I refunded order ORD-1009 (5006 cents), noted the refund on ticket TIC-5002,
+  and closed the ticket.
+tags: [orders, tickets, refund]
