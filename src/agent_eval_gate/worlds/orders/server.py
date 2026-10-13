@@ -95,6 +95,23 @@ def add_note(ticket_id: str, note: str) -> dict:
         raise ToolError(str(exc)) from None
 
 
+# --- harness read channel -----------------------------------------------
+#
+# MCP separates tools (what the agent may do) from resources (what a client
+# may read). Our adapter converts only tools into model-visible definitions,
+# so this resource gives the scorer the final world state over the same
+# connection without ever appearing in the agent's tool list.
+
+
+@server.resource("world://state", mime_type="application/json")
+def world_state() -> dict:
+    """Full world state, for end-state scoring. Never exposed to the agent."""
+    return {
+        "orders": {oid: asdict(order) for oid, order in world.orders.items()},
+        "tickets": {tid: asdict(ticket) for tid, ticket in world.tickets.items()},
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Orders mock world as an MCP server.")
     parser.add_argument(
