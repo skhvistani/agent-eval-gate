@@ -58,6 +58,12 @@ class Trace(BaseModel):
         default="",
         description="The agent's closing claim. The faithfulness judge scores this.",
     )
+    read_only_tools: list[str] = Field(
+        default=[],
+        description="Tools the server declared read-only (MCP readOnlyHint). Recorded "
+        "so the trajectory scorer can tell a lookup from a side effect without "
+        "hardcoding tool names for a particular world.",
+    )
     initial_state: dict[str, Any] = Field(
         default={},
         description="World state before the agent ran. Recorded so the end-state "

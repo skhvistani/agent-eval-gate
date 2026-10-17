@@ -17,10 +17,17 @@ from dataclasses import asdict
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.types import ToolAnnotations
 
 from agent_eval_gate.worlds.orders.store import World
 
 DEFAULT_SEED = 17
+
+# MCP's standard readOnlyHint. The server is the only place that knows which
+# tools change the world, so it declares it here and the trajectory scorer
+# reads it off the manifest instead of hardcoding a list of tool names.
+READ_ONLY = ToolAnnotations(readOnlyHint=True)
+MUTATING = ToolAnnotations(readOnlyHint=False)
 
 server = MCPServer(name="orders-world")
 world = World(DEFAULT_SEED)
@@ -29,13 +36,13 @@ world = World(DEFAULT_SEED)
 # --- orders -------------------------------------------------------------
 
 
-@server.tool()
+@server.tool(annotations=READ_ONLY)
 def list_orders() -> list[dict]:
     """List every order with its customer, amount in cents, and status."""
     return [asdict(order) for order in world.orders.values()]
 
 
-@server.tool()
+@server.tool(annotations=READ_ONLY)
 def get_order(order_id: str) -> dict:
     """Look up a single order by its id, e.g. "ORD-1001"."""
     try:
@@ -44,7 +51,7 @@ def get_order(order_id: str) -> dict:
         raise ToolError(f"No order with id {order_id}") from None
 
 
-@server.tool()
+@server.tool(annotations=MUTATING)
 def issue_refund(order_id: str) -> dict:
     """Refund an order. Fails if the order has already been refunded."""
     try:
@@ -58,13 +65,13 @@ def issue_refund(order_id: str) -> dict:
 # --- tickets ------------------------------------------------------------
 
 
-@server.tool()
+@server.tool(annotations=READ_ONLY)
 def list_tickets() -> list[dict]:
     """List every support ticket with the order it concerns and its status."""
     return [asdict(ticket) for ticket in world.tickets.values()]
 
 
-@server.tool()
+@server.tool(annotations=READ_ONLY)
 def get_ticket(ticket_id: str) -> dict:
     """Look up a single support ticket by its id, e.g. "TIC-5001"."""
     try:
@@ -73,7 +80,7 @@ def get_ticket(ticket_id: str) -> dict:
         raise ToolError(f"No ticket with id {ticket_id}") from None
 
 
-@server.tool()
+@server.tool(annotations=MUTATING)
 def close_ticket(ticket_id: str) -> dict:
     """Close a support ticket. Fails if the ticket is already closed."""
     try:
@@ -84,7 +91,7 @@ def close_ticket(ticket_id: str) -> dict:
         raise ToolError(str(exc)) from None
 
 
-@server.tool()
+@server.tool(annotations=MUTATING)
 def add_note(ticket_id: str, note: str) -> dict:
     """Append a note to a support ticket."""
     try:

@@ -98,6 +98,16 @@ async def anthropic_tools(session: ClientSession) -> list[dict]:
     ]
 
 
+async def read_only_tool_names(session: ClientSession) -> list[str]:
+    """Tools the server marked readOnlyHint, so the scorer can spot side effects."""
+    listed = await session.list_tools()
+    return [
+        tool.name
+        for tool in listed.tools
+        if tool.annotations is not None and tool.annotations.read_only_hint
+    ]
+
+
 async def read_world_state(session: ClientSession) -> dict:
     """Read the server's state resource for end-state scoring."""
     result = await session.read_resource(STATE_RESOURCE)
@@ -147,6 +157,7 @@ async def run_scenario(
     try:
         async with orders_world(scenario.seed) as session:
             tools = await anthropic_tools(session)
+            trace.read_only_tools = await read_only_tool_names(session)
             trace.initial_state = await read_world_state(session)
             messages: list[dict] = [{"role": "user", "content": scenario.task}]
 

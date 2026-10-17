@@ -3,8 +3,8 @@
 **An evaluation harness and CI gate for tool-using agents.**
 
 > **Status: work in progress (pre-alpha).**
-> The mock world, the scenario format, the agent loop, and the first of three
-> scoring layers are built and tested. The remaining two scorers, the
+> The mock world, the scenario format, the agent loop, and two of three
+> scoring layers are built and tested. The faithfulness judge, the
 > statistics, and the CI gate are **not built yet**.
 > There are no published results in this README, and nothing here should be
 > read as a finished evaluation. See [Status](#status) for exactly what exists.
@@ -76,17 +76,17 @@ of what runs today:
 | Example scenarios | **5**, one per category. Target is 50+. |
 | Claude tool-use loop with trace capture | **Built.** Hand-written on the Messages API. |
 | End-state scorer | **Built.** Change-set diff, including unexpected changes. |
-| Trajectory-rule scorer | Not started. |
+| Trajectory-rule scorer | **Built.** Forbidden, duplicate, out-of-scope calls. |
 | Faithfulness judge + calibration | Not started. |
 | Bootstrap confidence intervals | Not started. |
 | Second model adapter | Not started. |
 | CI gate and baseline | Not started. |
 | Results table | **No results yet.** |
 
-Test suite: 61 tests, covering world determinism, the refusal traps, scenario
+Test suite: 76 tests, covering world determinism, the refusal traps, scenario
 validation, the loop's mechanics against a scripted fake model, and the
-scorer's behaviour on collateral damage and crashed runs. The suite needs no
-API key and makes no paid calls.
+scorers' behaviour on collateral damage, refused side effects, and crashed
+runs. The suite needs no API key and makes no paid calls.
 
 ## 4. What exists in detail
 
@@ -171,6 +171,37 @@ The scorer reads only the trace's recorded initial and final state, so it
 knows nothing about orders or tickets and needs no change to score a second
 world.
 
+### The trajectory scorer
+
+The second layer reads the tool log rather than the world, and it exists
+because of one gap the first layer structurally cannot close: **an attempted
+side effect that failed leaves the world unchanged.**
+
+In a refusal trap the right behaviour is to look, understand, and decline. An
+agent that instead calls `issue_refund` on an already-refunded order gets a
+tool error, the world stays identical to the seed, and the end-state diff is
+clean — it passes. But the agent tried to double-refund a customer, and
+against a real payments API the outcome might not have been so forgiving.
+Only the trajectory shows it.
+
+Three rules, deliberately few, since exact-trajectory matching is explicitly
+out of scope:
+
+| Rule | Meaning |
+|---|---|
+| `forbidden` | The scenario named this call off-limits, optionally only with specific arguments. |
+| `duplicate` | The same mutating call with the same arguments, issued twice. |
+| `out_of_scope` | The scenario expects no world changes, so any attempted side effect is out of bounds. |
+
+The third is derived rather than declared: an empty `expected_changes` means
+the case is a lookup, a refusal, or an ambiguity, and in all three the job is
+to touch nothing.
+
+Which tools count as side effects comes from the server's MCP `readOnlyHint`
+annotations, recorded in the trace, so the scorer hardcodes no tool names and
+treats an undeclared tool as mutating — failing closed is the right default
+for a gate.
+
 ## 5. Running it
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
@@ -242,10 +273,9 @@ This is aimed at blocking a regression before it ships.
 
 ## 7. Roadmap
 
-Next, in order: trajectory rules (forbidden, duplicate, and out-of-scope
-actions read from the trace), the faithfulness judge with calibration against
-hand-labelled cases, bootstrap confidence intervals over k runs, a second
-model for comparison, and the CI gate with a stored baseline.
+Next, in order: the faithfulness judge with calibration against hand-labelled
+cases, bootstrap confidence intervals over k runs, a second model for
+comparison, and the CI gate with a stored baseline.
 
 Scenario coverage grows alongside: 5 today against a target of 50+, with at
 least 10 traps.
