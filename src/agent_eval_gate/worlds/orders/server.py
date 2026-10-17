@@ -106,10 +106,7 @@ def add_note(ticket_id: str, note: str) -> dict:
 @server.resource("world://state", mime_type="application/json")
 def world_state() -> dict:
     """Full world state, for end-state scoring. Never exposed to the agent."""
-    return {
-        "orders": {oid: asdict(order) for oid, order in world.orders.items()},
-        "tickets": {tid: asdict(ticket) for tid, ticket in world.tickets.items()},
-    }
+    return world.snapshot()
 
 
 def main() -> None:

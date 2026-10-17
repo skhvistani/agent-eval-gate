@@ -32,12 +32,26 @@ class Category(StrEnum):
 
 
 class ExpectedChange(BaseModel):
-    """One field that must differ from the seed world once the agent is done."""
+    """One field that must differ from the seed world once the agent is done.
+
+    `value` omitted means "this field must change, but the value is not
+    checked". That is for free text an agent writes itself, such as a note on
+    a ticket: requiring it to change is meaningful, requiring exact wording
+    is not.
+    """
 
     entity: str = Field(description='Collection name, e.g. "orders".')
     id: str = Field(description='Record id within the collection, e.g. "ORD-1001".')
     field: str = Field(description='Attribute that must change, e.g. "status".')
-    value: str | int = Field(description='Value it must hold at the end, e.g. "refunded".')
+    value: str | int | None = Field(
+        default=None,
+        description='Value it must hold at the end, e.g. "refunded". '
+        "Omit to require only that the field changed.",
+    )
+
+    @property
+    def checks_value(self) -> bool:
+        return self.value is not None
 
 
 class ForbiddenAction(BaseModel):

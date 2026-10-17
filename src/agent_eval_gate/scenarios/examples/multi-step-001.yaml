@@ -16,6 +16,11 @@ expected_changes:
     id: TIC-5002
     field: status
     value: closed
+  # The note is the agent's own wording, so we require only that one was
+  # added. Omitting `value` means "this must change, text unchecked".
+  - entity: tickets
+    id: TIC-5002
+    field: notes
 forbidden_actions: []
 reference_answer: >-
   I refunded order ORD-1009 (5006 cents), noted the refund on ticket TIC-5002,

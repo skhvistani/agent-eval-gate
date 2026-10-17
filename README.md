@@ -2,10 +2,11 @@
 
 **An evaluation harness and CI gate for tool-using agents.**
 
-> **Status: work in progress (pre-alpha, S0/S1).**
-> The mock world, the scenario format, and the agent loop are built and tested.
-> The scoring layers, the statistics, and the CI gate are **not built yet**.
-> There are no results to report in this README, and nothing here should be
+> **Status: work in progress (pre-alpha).**
+> The mock world, the scenario format, the agent loop, and the first of three
+> scoring layers are built and tested. The remaining two scorers, the
+> statistics, and the CI gate are **not built yet**.
+> There are no published results in this README, and nothing here should be
 > read as a finished evaluation. See [Status](#status) for exactly what exists.
 
 ---
@@ -74,7 +75,7 @@ of what runs today:
 | Scenario schema and YAML loader | **Built.** Validated with pydantic. |
 | Example scenarios | **5**, one per category. Target is 50+. |
 | Claude tool-use loop with trace capture | **Built.** Hand-written on the Messages API. |
-| End-state scorer | Not started. |
+| End-state scorer | **Built.** Change-set diff, including unexpected changes. |
 | Trajectory-rule scorer | Not started. |
 | Faithfulness judge + calibration | Not started. |
 | Bootstrap confidence intervals | Not started. |
@@ -82,9 +83,10 @@ of what runs today:
 | CI gate and baseline | Not started. |
 | Results table | **No results yet.** |
 
-Test suite: 46 tests, covering world determinism, the refusal traps, scenario
-validation, and the loop's mechanics against a scripted fake model (so the
-loop is testable without an API key or a bill).
+Test suite: 61 tests, covering world determinism, the refusal traps, scenario
+validation, the loop's mechanics against a scripted fake model, and the
+scorer's behaviour on collateral damage and crashed runs. The suite needs no
+API key and makes no paid calls.
 
 ## 4. What exists in detail
 
@@ -146,6 +148,28 @@ Two mechanics that are easy to get wrong and are pinned by tests: all tool
 results from one turn go back in a **single** user message, and a failed tool
 returns an error-flagged result carrying the reason rather than a dropped
 block.
+
+### The end-state scorer
+
+The first and most authoritative of the three layers: pure comparison, no
+model involved, so its verdict is deterministic. It diffs the world recorded
+before the run against the world after it, and checks two things:
+
+1. Every expected change actually happened.
+2. **Nothing else changed.**
+
+The second half is the one that is easy to omit and expensive to omit. It is
+what catches the agent that refunds the right order *and also* closes an
+unrelated ticket — a run a one-sided scorer would pass.
+
+An expected change may omit its value, which asserts only that the field
+changed. That is for text the agent writes itself, such as a note on a
+ticket, where requiring a change is meaningful but requiring exact wording is
+not.
+
+The scorer reads only the trace's recorded initial and final state, so it
+knows nothing about orders or tickets and needs no change to score a second
+world.
 
 ## 5. Running it
 
@@ -218,9 +242,13 @@ This is aimed at blocking a regression before it ships.
 
 ## 7. Roadmap
 
-Next, in order: the end-state scorer, trajectory rules, the faithfulness judge
-with calibration against hand-labelled cases, bootstrap confidence intervals,
-a second model for comparison, and the CI gate with a stored baseline.
+Next, in order: trajectory rules (forbidden, duplicate, and out-of-scope
+actions read from the trace), the faithfulness judge with calibration against
+hand-labelled cases, bootstrap confidence intervals over k runs, a second
+model for comparison, and the CI gate with a stored baseline.
+
+Scenario coverage grows alongside: 5 today against a target of 50+, with at
+least 10 traps.
 
 ## License
 

@@ -58,6 +58,11 @@ class Trace(BaseModel):
         default="",
         description="The agent's closing claim. The faithfulness judge scores this.",
     )
+    initial_state: dict[str, Any] = Field(
+        default={},
+        description="World state before the agent ran. Recorded so the end-state "
+        "scorer can diff without knowing anything about which world this is.",
+    )
     final_state: dict[str, Any] = Field(
         default={},
         description="World state after the run, read from the server's state resource.",

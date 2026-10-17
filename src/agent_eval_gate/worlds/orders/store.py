@@ -9,7 +9,7 @@ expressed, and refusal is a scoring category in its own right.
 """
 
 import random
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 CUSTOMERS = ["alice", "bob", "carol", "dave", "erin"]
 SUBJECTS = [
@@ -86,6 +86,19 @@ class World:
             )
         for ticket_id in self.rng.sample(sorted(self.tickets), N_PRE_CLOSED):
             self.tickets[ticket_id].status = "closed"
+
+    # --- scoring view ---------------------------------------------------
+
+    def snapshot(self) -> dict[str, dict[str, dict]]:
+        """World state as plain data: {entity: {record_id: {field: value}}}.
+
+        The single serialisation used by both the MCP state resource and the
+        end-state scorer, so the two can never drift apart.
+        """
+        return {
+            "orders": {oid: asdict(order) for oid, order in self.orders.items()},
+            "tickets": {tid: asdict(ticket) for tid, ticket in self.tickets.items()},
+        }
 
     # --- orders ---------------------------------------------------------
 
