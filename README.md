@@ -215,9 +215,6 @@ confidence intervals; and a CI check that fails a change when the lower bound
 drops below a stored baseline. Benchmarks measure prevalence after the fact.
 This is aimed at blocking a regression before it ships.
 
-> Citations were verified in October 2026. The 2025–2026 preprints in the
-> agentic-hallucination paragraph are recent and not peer-reviewed; confirm
-> them directly before relying on them in any submitted work.
 
 ## 7. Roadmap
 
