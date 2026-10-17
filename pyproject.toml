@@ -2,6 +2,7 @@
 name = "agent-eval-gate"
 version = "0.0.1"
 description = "Evaluation harness and CI gate for tool-using agents: deterministic MCP mock worlds, end-state scoring, calibrated faithfulness judge, bootstrap CIs."
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2",
