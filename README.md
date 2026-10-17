@@ -167,15 +167,57 @@ uv run python -m agent_eval_gate.worlds.orders.server --seed 17
 
 ## 6. Related work
 
-The outcome layer follows the state-based evaluation tradition in agent
-benchmarking; the judge layer follows the LLM-as-judge literature on
-evaluator bias; the error-bar discipline follows recent guidance on reporting
-uncertainty in evaluations. The piece this work aims to contribute is the
-**faithfulness of action reports**: whether an agent's closing claims
-correspond to actions that actually occurred and succeeded, scored against a
-deterministic trace and calibrated against human labels.
+**End-state scoring.** Judging a tool-using agent by the state it leaves
+behind, rather than by matching its trajectory, is the established approach.
+τ-bench scores retail and airline agents by comparing the final database to an
+annotated goal state and introduces pass^k as a reliability metric
+(Yao et al., 2024, arXiv:2406.12045); τ²-bench extends it to environments
+where the user also holds tools (Barres et al., 2025, arXiv:2506.07982).
+AppWorld checks the intended database changes *and* the absence of unintended
+ones (Trivedi et al., ACL 2024). WebArena makes the same move for web agents
+with self-hostable environments scored on functional correctness
+(Zhou et al., ICLR 2024).
 
-<!-- TODO: citations pending verification before submission. -->
+**LLM-as-judge and its biases.** Zheng et al. (NeurIPS 2023 Datasets &
+Benchmarks) established that strong model judges agree with human experts at
+roughly human–human levels (85% on MT-Bench) and catalogued position,
+verbosity, and self-enhancement bias. Panickssery et al. (NeurIPS 2024) showed
+evaluators recognise and favour their own generations, with self-recognition
+causally driving the effect — which is why the judge here is drawn from a
+different model family than the agent under test, and why its agreement with
+human labels is reported rather than assumed.
+
+**Faithfulness.** The term comes from factual-consistency evaluation
+(Honovich et al., NAACL 2022) and was popularised as a RAG metric by RAGAS
+(Es et al., EACL 2024), which decomposes an answer into statements and
+verifies each against retrieved context. The move here is to swap the
+retrieved context for the **tool log**: the claims are about actions, and the
+grounding is what the trace shows actually happened.
+
+**Uncertainty.** Reporting intervals rather than point scores, and comparing
+models in a paired fashion, follows Miller (2024, arXiv:2411.00640).
+
+**Agentic hallucination — concurrent work.** Unfaithful action reporting is
+an active area rather than an open gap. MIRAGE-Bench offers a taxonomy of
+agentic hallucination spanning unfaithfulness to instructions, to execution
+history, and to observations (Zhang et al., 2025, arXiv:2507.21017).
+ToolBeHonest (EMNLP 2024) is adjacent but measures hallucination in *tool
+selection* under missing or limited toolsets, not false reports of completed
+actions. Several 2025–2026 preprints measure the specific behaviour of an
+agent claiming work it did not do.
+
+**What this adds.** Not the observation that agents misreport their actions —
+the benchmarks above establish that. The contribution is turning it into an
+**enforceable pre-deployment gate**: a deterministic, seeded world so the only
+stochasticity is the agent; faithfulness judged against that trace and
+calibrated against human labels with agreement published; results carried as
+confidence intervals; and a CI check that fails a change when the lower bound
+drops below a stored baseline. Benchmarks measure prevalence after the fact.
+This is aimed at blocking a regression before it ships.
+
+> Citations were verified in October 2026. The 2025–2026 preprints in the
+> agentic-hallucination paragraph are recent and not peer-reviewed; confirm
+> them directly before relying on them in any submitted work.
 
 ## 7. Roadmap
 
