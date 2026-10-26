@@ -3,9 +3,10 @@
 **An evaluation harness and CI gate for tool-using agents.**
 
 > **Status: work in progress (pre-alpha).**
-> The mock world, the scenario format, the agent loop, and two of three
-> scoring layers are built and tested. The faithfulness judge, the
-> statistics, and the CI gate are **not built yet**.
+> The mock world, the scenario format, the agent loop, and all three
+> scoring layers are built and tested. Judge calibration has the machinery
+> but **no hand labels yet**; the statistics and the CI gate are **not built
+> yet**.
 > There are no published results in this README, and nothing here should be
 > read as a finished evaluation. See [Status](#status) for exactly what exists.
 
@@ -77,16 +78,19 @@ of what runs today:
 | Claude tool-use loop with trace capture | **Built.** Hand-written on the Messages API. |
 | End-state scorer | **Built.** Change-set diff, including unexpected changes. |
 | Trajectory-rule scorer | **Built.** Forbidden, duplicate, out-of-scope calls. |
-| Faithfulness judge + calibration | Not started. |
+| Faithfulness judge | **Built.** Structured verdict, refuses to grade its own model. |
+| Lexical baseline for the judge | **Built.** No-model comparison point. |
+| Judge calibration | **Machinery built** (accuracy, kappa, confusion). **0 hand labels** so far. |
 | Bootstrap confidence intervals | Not started. |
 | Second model adapter | Not started. |
 | CI gate and baseline | Not started. |
 | Results table | **No results yet.** |
 
-Test suite: 76 tests, covering world determinism, the refusal traps, scenario
-validation, the loop's mechanics against a scripted fake model, and the
+Test suite: 103 tests, covering world determinism, the refusal traps,
+scenario validation, the loop's mechanics against a scripted fake model, the
 scorers' behaviour on collateral damage, refused side effects, and crashed
-runs. The suite needs no API key and makes no paid calls.
+runs, the judge's plumbing against a scripted fake, and the calibration
+arithmetic. The suite needs no API key and makes no paid calls.
 
 ## 4. What exists in detail
 
@@ -202,6 +206,43 @@ annotations, recorded in the trace, so the scorer hardcodes no tool names and
 treats an undeclared tool as mutating — failing closed is the right default
 for a gate.
 
+### The faithfulness judge
+
+The third layer, and the only one that uses a model. It answers the question
+code cannot: did the agent **tell the truth** about what it did? It is shown
+the task, the complete tool log with each call marked OK or FAILED, and the
+agent's final message, and returns a structured verdict: faithful or not,
+with each unsupported claim quoted verbatim and the reason it is unsupported.
+
+Faithfulness is not correctness, and the layers are independent on purpose.
+An agent that refunds the wrong order and reports exactly that is faithful
+and fails the end-state check. An agent that refunds the right order and
+claims it also closed a ticket it never touched is unfaithful and passes the
+end-state check. The judge is therefore never shown the scenario's expected
+changes or reference answer; that would turn a faithfulness verdict into a
+correctness verdict.
+
+Two safeguards, because a judge is a model and can be wrong:
+
+- **It refuses to judge a trace produced by its own model.** Self-preference
+  bias in LLM evaluators is documented and causal. Never grading your own
+  work is the minimum defence; a judge from a different model *family* is the
+  intended configuration once a second provider is wired in, and is an
+  acknowledged gap until then.
+- **Its verdicts are calibrated against hand labels, and the agreement is
+  published.** The machinery reports accuracy, Cohen's kappa, the confusion
+  matrix, and the rate at which the judge *misses* unfaithful reports, which
+  is the number that matters most for a gate. A judge with low kappa is
+  replaced, not trusted. There are no labels yet, so there is no number yet.
+
+**A lexical baseline runs alongside the judge.** Recent work on false-success
+detection reports that LLM judges can perform *worse* than simple lexical
+detectors at this exact task. Whether that holds here is an empirical
+question that can only be answered by measuring both against the same human
+labels, so a no-model baseline — ungrounded record ids, unreported failed
+calls, claimed actions with no matching successful call — is scored on every
+trace and will be calibrated on the same labels as the judge.
+
 ## 5. Running it
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
@@ -273,9 +314,9 @@ This is aimed at blocking a regression before it ships.
 
 ## 7. Roadmap
 
-Next, in order: the faithfulness judge with calibration against hand-labelled
-cases, bootstrap confidence intervals over k runs, a second model for
-comparison, and the CI gate with a stored baseline.
+Next, in order: hand-labelling ~50 (message, tool log) pairs and publishing
+judge and baseline agreement, bootstrap confidence intervals over k runs, a
+second model for comparison, and the CI gate with a stored baseline.
 
 Scenario coverage grows alongside: 5 today against a target of 50+, with at
 least 10 traps.

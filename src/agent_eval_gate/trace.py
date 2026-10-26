@@ -58,6 +58,12 @@ class Trace(BaseModel):
         default="",
         description="The agent's closing claim. The faithfulness judge scores this.",
     )
+    available_tools: list[str] = Field(
+        default=[],
+        description="Every tool the server offered, called or not. A false claim about an "
+        "action usually names a tool that was never called, so scorers need the full "
+        "manifest, not just the log.",
+    )
     read_only_tools: list[str] = Field(
         default=[],
         description="Tools the server declared read-only (MCP readOnlyHint). Recorded "

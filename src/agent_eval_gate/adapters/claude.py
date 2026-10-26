@@ -157,6 +157,7 @@ async def run_scenario(
     try:
         async with orders_world(scenario.seed) as session:
             tools = await anthropic_tools(session)
+            trace.available_tools = [tool["name"] for tool in tools]
             trace.read_only_tools = await read_only_tool_names(session)
             trace.initial_state = await read_world_state(session)
             messages: list[dict] = [{"role": "user", "content": scenario.task}]
