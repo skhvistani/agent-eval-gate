@@ -3,10 +3,9 @@
 **An evaluation harness and CI gate for tool-using agents.**
 
 > **Status: work in progress (pre-alpha).**
-> The mock world, the scenario format, the agent loop, and all three
-> scoring layers are built and tested. Judge calibration has the machinery
-> but **no hand labels yet**; the statistics and the CI gate are **not built
-> yet**.
+> The mock world, the scenario format, the agent loop, all three scoring
+> layers, and the statistics are built and tested. Judge calibration has the
+> machinery but **no hand labels yet**; the CI gate is **not built yet**.
 > There are no published results in this README, and nothing here should be
 > read as a finished evaluation. See [Status](#status) for exactly what exists.
 
@@ -81,16 +80,18 @@ of what runs today:
 | Faithfulness judge | **Built.** Structured verdict, refuses to grade its own model. |
 | Lexical baseline for the judge | **Built.** No-model comparison point. |
 | Judge calibration | **Machinery built** (accuracy, kappa, confusion). **0 hand labels** so far. |
-| Bootstrap confidence intervals | Not started. |
+| Runner (k runs, concurrency, saved traces) | **Built.** `python -m agent_eval_gate run`. |
+| Bootstrap confidence intervals | **Built.** Scenario-clustered; pass rate, pass^k, per-category, per-layer, paired model difference. |
 | Second model adapter | Not started. |
 | CI gate and baseline | Not started. |
 | Results table | **No results yet.** |
 
-Test suite: 103 tests, covering world determinism, the refusal traps,
+Test suite: 124 tests, covering world determinism, the refusal traps,
 scenario validation, the loop's mechanics against a scripted fake model, the
 scorers' behaviour on collateral damage, refused side effects, and crashed
-runs, the judge's plumbing against a scripted fake, and the calibration
-arithmetic. The suite needs no API key and makes no paid calls.
+runs, the judge's plumbing against a scripted fake, the calibration
+arithmetic, the bootstrap's clustering property, and the runner end to end
+against a scripted model. The suite needs no API key and makes no paid calls.
 
 ## 4. What exists in detail
 
@@ -243,6 +244,37 @@ labels, so a no-model baseline — ungrounded record ids, unreported failed
 calls, claimed actions with no matching successful call — is scored on every
 trace and will be calibrated on the same labels as the judge.
 
+### The statistics
+
+One run of a stochastic agent is noise. Every number the harness reports
+carries a 95% interval from the same bootstrap: resample scenarios with
+replacement, recompute, take the 2.5th and 97.5th percentiles.
+
+**The unit of resampling is the scenario, not the run.** The k runs of one
+scenario share a task and are correlated; resampling runs as if independent
+would make every interval too narrow. There is a test that constructs a suite
+where this matters and checks the clustered interval is more than twice as
+wide as the naive one.
+
+Reported: overall pass rate; **pass^k**, the fraction of scenarios where
+*every* run passed, which is reliability rather than luck (a 90% agent at
+k = 5 is reliable about 59% of the time); pass rate per category and per
+scoring layer, so a failure can be traced to lookups versus traps and to
+state versus honesty; and a **paired difference** between two models on the
+same scenarios, which cancels scenario-difficulty noise and is the interval
+to read when asking whether A beats B.
+
+Pure Python, seeded, so a published interval can be re-derived exactly.
+
+### The runner
+
+`python -m agent_eval_gate run --model <id> --judge <id> --k 5` runs every
+scenario k times with bounded concurrency, scores each run with every layer,
+writes each trace to `runs/<dir>/traces/` for later hand-labelling, and
+renders the tables above. One crashed run is recorded as an error and never
+takes the suite down; the harness was exercised under a total API outage and
+produced a complete report with 25 named failures and zero spend.
+
 ## 5. Running it
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
@@ -314,9 +346,10 @@ This is aimed at blocking a regression before it ships.
 
 ## 7. Roadmap
 
-Next, in order: hand-labelling ~50 (message, tool log) pairs and publishing
-judge and baseline agreement, bootstrap confidence intervals over k runs, a
-second model for comparison, and the CI gate with a stored baseline.
+Next, in order: a k = 5 results table on the example scenarios, growing the
+scenario set toward 50, hand-labelling ~50 (message, tool log) pairs and
+publishing judge and baseline agreement, a second model and the paired
+comparison, and the CI gate with a stored baseline.
 
 Scenario coverage grows alongside: 5 today against a target of 50+, with at
 least 10 traps.
