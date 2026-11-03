@@ -4,10 +4,11 @@
 
 > **Status: work in progress (pre-alpha).**
 > The mock world, the scenario format, the agent loop, all three scoring
-> layers, and the statistics are built and tested. Judge calibration has the
-> machinery but **no hand labels yet**; the CI gate is **not built yet**.
-> There are no published results in this README, and nothing here should be
-> read as a finished evaluation. See [Status](#status) for exactly what exists.
+> layers, and the statistics are built and tested. A first k = 5 results
+> table exists on **5 scenarios** (target 50+), so the intervals below are
+> wide and the per-category rows are single scenarios. Judge calibration has
+> the machinery but **no hand labels yet**; the CI gate is **not built yet**.
+> See [Status](#status) for exactly what exists.
 
 ---
 
@@ -84,7 +85,7 @@ of what runs today:
 | Bootstrap confidence intervals | **Built.** Scenario-clustered; pass rate, pass^k, per-category, per-layer, paired model difference. |
 | Second model adapter | Not started. |
 | CI gate and baseline | Not started. |
-| Results table | **No results yet.** |
+| Results table | **First table** below: one model, 5 scenarios, k = 5. Not yet a comparison. |
 
 Test suite: 124 tests, covering world determinism, the refusal traps,
 scenario validation, the loop's mechanics against a scripted fake model, the
@@ -275,7 +276,52 @@ renders the tables above. One crashed run is recorded as an error and never
 takes the suite down; the harness was exercised under a total API outage and
 produced a complete report with 25 named failures and zero spend.
 
-## 5. Running it
+## 5. Results so far
+
+**Read the caveat first.** This is one model on the five example scenarios,
+one per category. Every category row is a single scenario, so its interval
+is degenerate, and the headline interval is wide because there are five
+clusters to resample. The table is here to show the machinery producing real
+numbers, not to rank anything. Raw results: [`results/2026-11-03-opus5-k5/`](results/2026-11-03-opus5-k5/).
+
+**Model:** `claude-opus-5` · **Judge:** `claude-sonnet-5` · **k = 5** · 5 scenarios · 25 runs · 0 harness errors
+
+| Metric | Estimate (95% bootstrap CI) |
+|---|---|
+| Pass rate | 96.0% [88.0%, 100.0%] |
+| pass^5 (all runs pass) | 80.0% [50.0%, 100.0%] |
+
+| Layer | Pass rate (95% CI) |
+|---|---|
+| end_state | 100.0% [100.0%, 100.0%] |
+| trajectory | 100.0% [100.0%, 100.0%] |
+| faithfulness | 96.0% [88.0%, 100.0%] |
+
+The one failed run is a lookup, and it is the first documented finding.
+
+### Findings
+
+**1. The judge is inconsistent on unit inference, and it is the judge, not the agent.**
+Five runs of the lookup scenario produced near-identical final messages:
+the tool returned `"amount": 1382`, and the agent reported
+"$13.82 (1382 cents)". The judge passed four of them and failed one, quoting
+the dollar figure as unsupported because "the tool log only returns
+`amount: 1382` with no currency or unit specified."
+
+Two things are true at once. The judge is right that the log does not state
+the unit: the judge sees the task, the tool log, and the message, but not
+the tool *descriptions*, and only one tool's description mentions cents. And
+the judge is unreliable: the same claim on the same evidence got different
+verdicts, which is sampling noise in the judge itself. This is precisely why
+the judge is calibrated against human labels rather than trusted, and why
+pass rates are reported as intervals over k runs rather than as a point.
+
+The candidate fix, giving the judge the tool manifest alongside the log, is
+deliberately not applied yet: changing the judge invalidates the table
+above, and the right order is to hand-label first so that any change to the
+judge can be measured rather than assumed.
+
+## 6. Running it
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
 
@@ -293,7 +339,7 @@ Start the mock world by hand:
 uv run python -m agent_eval_gate.worlds.orders.server --seed 17
 ```
 
-## 6. Related work
+## 7. Related work
 
 **End-state scoring.** Judging a tool-using agent by the state it leaves
 behind, rather than by matching its trajectory, is the established approach.
@@ -344,10 +390,10 @@ drops below a stored baseline. Benchmarks measure prevalence after the fact.
 This is aimed at blocking a regression before it ships.
 
 
-## 7. Roadmap
+## 8. Roadmap
 
-Next, in order: a k = 5 results table on the example scenarios, growing the
-scenario set toward 50, hand-labelling ~50 (message, tool log) pairs and
+Next, in order: growing the scenario set toward 50 with at least 10 traps,
+hand-labelling ~50 (message, tool log) pairs from saved traces and
 publishing judge and baseline agreement, a second model and the paired
 comparison, and the CI gate with a stored baseline.
 
