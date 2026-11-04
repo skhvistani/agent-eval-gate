@@ -12,6 +12,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from agent_eval_gate.gate import DEFAULT_TOLERANCE, evaluate
 from agent_eval_gate.report import render
 from agent_eval_gate.runner import DEFAULT_CONCURRENCY, DEFAULT_K, load_suite, run_suite
 from agent_eval_gate.scenarios.loader import load_scenarios
@@ -64,6 +65,16 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_gate(args: argparse.Namespace) -> int:
+    verdict = evaluate(
+        load_suite(Path(args.results)),
+        load_suite(Path(args.baseline)),
+        tolerance=args.tolerance,
+    )
+    print(verdict.summary)
+    return 0 if verdict.passed else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="agent_eval_gate")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -82,6 +93,12 @@ def main(argv: list[str] | None = None) -> int:
     rep = sub.add_parser("report", help="re-render a saved results.json")
     rep.add_argument("results")
     rep.set_defaults(func=cmd_report)
+
+    gate = sub.add_parser("gate", help="fail if results regress against a baseline")
+    gate.add_argument("--results", required=True, help="candidate results.json")
+    gate.add_argument("--baseline", required=True, help="accepted baseline results.json")
+    gate.add_argument("--tolerance", type=float, default=DEFAULT_TOLERANCE)
+    gate.set_defaults(func=cmd_gate)
 
     args = parser.parse_args(argv)
     return args.func(args)

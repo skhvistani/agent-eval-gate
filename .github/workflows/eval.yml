@@ -1,0 +1,58 @@
+name: eval-gate
+
+# The paid run. Executes the suite against a real model, scores it, and
+# fails the job if the lower confidence bound drops below the committed
+# baseline minus a tolerance.
+#
+# Deliberately NOT triggered by pull requests: secrets are unavailable to
+# fork PRs, and an eval that spends money should be an explicit decision.
+# Trigger it by hand, or let the nightly schedule run it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: model under test
+        default: claude-opus-5
+      k:
+        description: runs per scenario
+        default: "5"
+      tolerance:
+        description: allowed drop below baseline pass rate
+        default: "0.05"
+  schedule:
+    - cron: "0 6 * * *" # nightly, 06:00 UTC
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+      - run: uv sync --frozen
+
+      - name: run suite
+        run: >
+          uv run python -m agent_eval_gate run
+          --model ${{ inputs.model || 'claude-opus-5' }}
+          --judge claude-sonnet-5
+          --k ${{ inputs.k || 5 }}
+          --out runs/candidate
+
+      - name: gate against baseline
+        run: >
+          uv run python -m agent_eval_gate gate
+          --results runs/candidate/results.json
+          --baseline results/baseline.json
+          --tolerance ${{ inputs.tolerance || 0.05 }}
+
+      - name: upload traces and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-${{ github.run_id }}
+          path: runs/candidate

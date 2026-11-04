@@ -1,14 +1,15 @@
 # agent-eval-gate
 
+[![ci](https://github.com/skhvistani/agent-eval-gate/actions/workflows/ci.yml/badge.svg)](https://github.com/skhvistani/agent-eval-gate/actions/workflows/ci.yml)
+
 **An evaluation harness and CI gate for tool-using agents.**
 
 > **Status: work in progress (pre-alpha).**
-> The mock world, the scenario format, the agent loop, all three scoring
-> layers, and the statistics are built and tested. A first k = 5 results
-> table exists on **5 scenarios** (target 50+), so the intervals below are
-> wide and the per-category rows are single scenarios. Judge calibration has
-> the machinery but **no hand labels yet**; the CI gate is **not built yet**.
-> See [Status](#status) for exactly what exists.
+> Every component in the charter now exists and is tested, including the
+> CI gate. What is still thin is **content**: 5 scenarios against a target
+> of 50+, so the intervals below are wide and each category row is a single
+> scenario; one model, so no comparison yet; and judge calibration has its
+> machinery but **no hand labels yet**. See [Status](#status).
 
 ---
 
@@ -84,15 +85,17 @@ of what runs today:
 | Runner (k runs, concurrency, saved traces) | **Built.** `python -m agent_eval_gate run`. |
 | Bootstrap confidence intervals | **Built.** Scenario-clustered; pass rate, pass^k, per-category, per-layer, paired model difference. |
 | Second model adapter | Not started. |
-| CI gate and baseline | Not started. |
+| CI gate and baseline | **Built.** `gate` subcommand + nightly/manual workflow; baseline committed. |
 | Results table | **First table** below: one model, 5 scenarios, k = 5. Not yet a comparison. |
 
-Test suite: 124 tests, covering world determinism, the refusal traps,
+Test suite: 135 tests, covering world determinism, the refusal traps,
 scenario validation, the loop's mechanics against a scripted fake model, the
 scorers' behaviour on collateral damage, refused side effects, and crashed
 runs, the judge's plumbing against a scripted fake, the calibration
-arithmetic, the bootstrap's clustering property, and the runner end to end
-against a scripted model. The suite needs no API key and makes no paid calls.
+arithmetic, the bootstrap's clustering property, the runner end to end
+against a scripted model, and the gate's refusal to pass a lucky point
+estimate. The suite needs no API key and makes no paid calls, and it is what
+the `ci` badge above reports.
 
 ## 4. What exists in detail
 
@@ -276,6 +279,42 @@ renders the tables above. One crashed run is recorded as an error and never
 takes the suite down; the harness was exercised under a total API outage and
 produced a complete report with 25 named failures and zero spend.
 
+### The gate
+
+A report tells you a number; a gate makes a decision.
+
+```
+FAIL  when  lower_bound(candidate − baseline)  <  −tolerance
+```
+
+The difference is a **paired** bootstrap over the scenarios both runs share.
+Two runs on the same scenarios are a paired design; resampling the same
+scenario for both sides cancels scenario-difficulty noise, so the interval
+is about the change, not about which scenarios happened to be hard. This is
+the comparison the error-bars literature recommends for A versus B, and it
+is also Finding #2 below: the charter's first phrasing of the rule could not
+be cleared by an identical run.
+
+Reading the **lower bound**, not the point estimate, is the design in either
+form. A candidate whose difference is centred on zero but whose interval
+reaches well below it is not evidence of "no regression"; it is evidence of
+"cannot tell", and the gate treats that as a failure to clear. There is a
+test where one scenario's failure moves to a different scenario across ten
+scenarios and the gate fails it, and a companion where the same swap across
+a hundred scenarios clears: a narrower gate is earned with more scenarios,
+not a looser tolerance.
+
+The gate also refuses to compare runs on substantially different scenario
+sets, and names harness errors in its verdict so an API outage is not
+mistaken for a model regression.
+
+Two workflows. `ci` runs tests and lint on every push and spends nothing.
+`eval-gate` runs the paid suite on a nightly schedule or by hand, gates it
+against the committed `results/baseline.json`, and uploads every trace as an
+artifact. It is deliberately not triggered by pull requests: an eval that
+spends money should be an explicit decision, and secrets are unavailable to
+fork PRs anyway.
+
 ## 5. Results so far
 
 **Read the caveat first.** This is one model on the five example scenarios,
@@ -321,6 +360,16 @@ deliberately not applied yet: changing the judge invalidates the table
 above, and the right order is to hand-label first so that any change to the
 judge can be measured rather than assumed.
 
+**2. The charter's gate rule cannot be cleared by an identical run at small n.**
+The charter said: fail when the candidate's lower confidence bound drops
+below the baseline pass rate minus a tolerance. Gating the Nov 3 run
+against *itself* failed: the candidate interval was [88%, 100%] on five
+scenarios, the threshold 91%. Comparing an interval to a point penalises
+width, and width at n = 5 is unavoidable. The paired difference on the same
+data was exactly 0.0% [0.0%, 0.0%], which is the truth. The gate now uses
+the paired rule. The lesson generalises: a gate that compares like with
+like is the only kind that can tell "no change" from "cannot tell".
+
 ## 6. Running it
 
 Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
@@ -332,6 +381,14 @@ uv run pytest
 
 The test suite needs no API key. To run an agent against the world, copy
 `.env.example` to `.env` and add an Anthropic API key.
+
+Run the suite, re-render a report, or gate a run against the baseline:
+
+```bash
+uv run python -m agent_eval_gate run    --model claude-opus-5 --judge claude-sonnet-5 --k 5
+uv run python -m agent_eval_gate report runs/<dir>/results.json
+uv run python -m agent_eval_gate gate   --results runs/<dir>/results.json --baseline results/baseline.json
+```
 
 Start the mock world by hand:
 
@@ -392,10 +449,11 @@ This is aimed at blocking a regression before it ships.
 
 ## 8. Roadmap
 
-Next, in order: growing the scenario set toward 50 with at least 10 traps,
-hand-labelling ~50 (message, tool log) pairs from saved traces and
-publishing judge and baseline agreement, a second model and the paired
-comparison, and the CI gate with a stored baseline.
+The code is complete for v0.1; what remains is content. In order: growing
+the scenario set toward 50 with at least 10 traps, hand-labelling ~50
+(message, tool log) pairs from saved traces and publishing judge and
+baseline agreement, and a second model with the paired comparison. The
+baseline is then re-cut on the full suite.
 
 Scenario coverage grows alongside: 5 today against a target of 50+, with at
 least 10 traps.
